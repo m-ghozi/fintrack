@@ -6,6 +6,7 @@ import { PageHeader } from '@/src/components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
+import { CurrencyInput } from '@/src/components/shared/CurrencyInput';
 import { Progress } from '@/src/components/ui/progress';
 import { Badge } from '@/src/components/ui/badge';
 import { MoneyDisplay } from '@/src/components/shared/MoneyDisplay';
@@ -72,7 +73,7 @@ export const SavingsView: React.FC = () => {
 
   const handleSubmitGoal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || targetAmount <= 0) return;
+    if (!name || !targetAmount || targetAmount <= 0) return;
 
     const dto: CreateSavingGoalDTO = {
       name,
@@ -92,7 +93,7 @@ export const SavingsView: React.FC = () => {
 
   const handleDepositSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedGoal || depositAmount <= 0) return;
+    if (!selectedGoal || !depositAmount || depositAmount <= 0) return;
 
     await addContributionMutation.mutateAsync({
       id: selectedGoal.id,
@@ -253,11 +254,11 @@ export const SavingsView: React.FC = () => {
               <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                 Target Nominal (Rp) *
               </label>
-              <Input
-                type="number"
-                required
+              <CurrencyInput
                 value={targetAmount}
-                onChange={(e) => setTargetAmount(Number(e.target.value))}
+                onChange={(v) => setTargetAmount(v ?? 0)}
+                required
+                error={!targetAmount || targetAmount <= 0 ? 'Nominal wajib diisi' : undefined}
               />
             </div>
             <div>
@@ -320,11 +321,11 @@ export const SavingsView: React.FC = () => {
             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
               Nominal Setoran (Rp) *
             </label>
-            <Input
-              type="number"
-              required
+            <CurrencyInput
               value={depositAmount}
-              onChange={(e) => setDepositAmount(Number(e.target.value))}
+              onChange={(v) => setDepositAmount(v ?? 0)}
+              required
+              error={!depositAmount || depositAmount <= 0 ? 'Nominal wajib diisi' : undefined}
             />
           </div>
 

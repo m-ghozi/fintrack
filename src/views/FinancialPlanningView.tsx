@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { PageHeader } from '@/src/components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/src/components/ui/card';
 import { Input } from '@/src/components/ui/input';
+import { CurrencyInput } from '@/src/components/shared/CurrencyInput';
 import { Button } from '@/src/components/ui/button';
 import { Progress } from '@/src/components/ui/progress';
 import { MoneyDisplay } from '@/src/components/shared/MoneyDisplay';
@@ -39,10 +40,9 @@ export const FinancialPlanningView: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 max-w-xs">
             <span className="text-xs text-zinc-500 font-semibold">Rp</span>
-            <Input
-              type="number"
+            <CurrencyInput
               value={monthlyIncome}
-              onChange={(e) => setMonthlyIncome(Number(e.target.value) || 0)}
+              onChange={(v) => setMonthlyIncome(v ?? 0)}
               className="w-40 font-semibold"
             />
           </div>
