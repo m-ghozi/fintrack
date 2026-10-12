@@ -4,8 +4,10 @@ import { Category, CreateCategoryDTO, UpdateCategoryDTO, CategoryType } from '@/
 export const categoriesService = {
   async getCategories(type?: CategoryType): Promise<Category[]> {
     const query = type ? `?type=${type}` : '';
-    const res = await apiClient<{ data: Category[] }>(`/categories${query}`);
-    return res.data;
+    const res = await apiClient<{ data: Category[] & { children?: Category[] }[] }>(`/categories${query}`);
+    // Backend nests children under `children` (Prisma self-relation); the UI
+    // reads `subcategories`. Map it so sub-categories render.
+    return res.data.map((c) => ({ ...c, subcategories: c.children ?? [] }));
   },
 
   async createCategory(dto: CreateCategoryDTO): Promise<Category> {

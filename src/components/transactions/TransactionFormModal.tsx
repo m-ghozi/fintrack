@@ -277,11 +277,21 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
               className="flex h-9 w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1 text-xs text-zinc-900 dark:text-zinc-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="">Pilih Kategori (Opsional)</option>
-              {filteredCategories?.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
+              {filteredCategories?.map((cat) =>
+                cat.subcategories && cat.subcategories.length > 0 ? (
+                  <optgroup key={cat.id} label={cat.name}>
+                    {cat.subcategories.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                )
+              )}
             </select>
           </div>
         )}
