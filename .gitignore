@@ -8,3 +8,10 @@ coverage/
 !.env.example
 
 dev-dist/
+
+# Local ops / deployment artifacts (not core source code)
+deploy.sh
+frontend_server.py
+*.service
+backend/tunnel.yml
+export/
