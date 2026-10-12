@@ -5,6 +5,7 @@ import { PageHeader } from '@/src/components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
+import { CurrencyInput } from '@/src/components/shared/CurrencyInput';
 import { Badge } from '@/src/components/ui/badge';
 import { Progress } from '@/src/components/ui/progress';
 import { MoneyDisplay } from '@/src/components/shared/MoneyDisplay';
@@ -356,10 +357,9 @@ export const AccountsView: React.FC = () => {
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                   Saldo Awal (Rp)
                 </label>
-                <Input
-                  type="number"
+                <CurrencyInput
                   value={formOpeningBalance}
-                  onChange={(e) => setFormOpeningBalance(Number(e.target.value))}
+                  onChange={(v) => setFormOpeningBalance(v ?? 0)}
                   placeholder="0"
                 />
               </div>
@@ -370,10 +370,9 @@ export const AccountsView: React.FC = () => {
                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                   Credit Limit (Limit Kartu Kredit) *
                 </label>
-                <Input
-                  type="number"
+                <CurrencyInput
                   value={formCreditLimit}
-                  onChange={(e) => setFormCreditLimit(Number(e.target.value))}
+                  onChange={(v) => setFormCreditLimit(v ?? 0)}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">

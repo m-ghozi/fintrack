@@ -8,6 +8,7 @@ import { PageHeader } from '@/src/components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
+import { CurrencyInput } from '@/src/components/shared/CurrencyInput';
 import { Badge } from '@/src/components/ui/badge';
 import { MoneyDisplay } from '@/src/components/shared/MoneyDisplay';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/src/components/ui/dialog';
@@ -68,7 +69,7 @@ export const RecurringView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || amount <= 0 || !accountId) return;
+    if (!name || !amount || amount <= 0 || !accountId) return;
 
     const dto: CreateRecurringDTO = {
       name,
@@ -247,11 +248,11 @@ export const RecurringView: React.FC = () => {
               <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                 Nominal (Rp) *
               </label>
-              <Input
-                type="number"
-                required
+              <CurrencyInput
                 value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                onChange={(v) => setAmount(v ?? 0)}
+                required
+                error={!amount || amount <= 0 ? 'Nominal wajib diisi' : undefined}
               />
             </div>
           </div>

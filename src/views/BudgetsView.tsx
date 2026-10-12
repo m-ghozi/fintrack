@@ -6,6 +6,7 @@ import { PageHeader } from '@/src/components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
+import { CurrencyInput } from '@/src/components/shared/CurrencyInput';
 import { Progress } from '@/src/components/ui/progress';
 import { Badge } from '@/src/components/ui/badge';
 import { MoneyDisplay } from '@/src/components/shared/MoneyDisplay';
@@ -53,7 +54,7 @@ export const BudgetsView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!categoryId || amount <= 0) return;
+    if (!categoryId || !amount || amount <= 0) return;
 
     const dto: CreateBudgetDTO = {
       categoryId,
@@ -257,12 +258,12 @@ export const BudgetsView: React.FC = () => {
             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
               Batas Anggaran Bulanan (Rp) *
             </label>
-            <Input
-              type="number"
-              required
+            <CurrencyInput
               value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
+              onChange={(v) => setAmount(v ?? 0)}
               placeholder="Contoh: 1500000"
+              required
+              error={!amount || amount <= 0 ? 'Nominal wajib diisi' : undefined}
             />
           </div>
 

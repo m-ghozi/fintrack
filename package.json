@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "dev:api": "npm run dev -w backend",
-    "build": "vite build",
+    "build": "vite build && node scripts/generate-sw.mjs",
     "build:api": "npm run build -w backend",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",

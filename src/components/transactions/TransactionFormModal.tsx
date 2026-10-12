@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/src/components/ui/dialog';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
+import { CurrencyInput } from '@/src/components/shared/CurrencyInput';
 import { useAccounts } from '@/src/hooks/useAccounts';
 import { useCategories } from '@/src/hooks/useCategories';
 import { useCreateTransaction, useUpdateTransaction } from '@/src/hooks/useTransactions';
@@ -68,6 +69,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     setValue,
     watch,
     reset,
+    control,
     formState: { errors },
   } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
@@ -184,11 +186,17 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
           <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
             Nominal (Rp) *
           </label>
-          <Input
-            type="number"
-            placeholder="0"
-            {...register('amount', { valueAsNumber: true })}
-            error={errors.amount?.message}
+          <Controller
+            name="amount"
+            control={control}
+            render={({ field }) => (
+              <CurrencyInput
+                value={field.value}
+                onChange={field.onChange}
+                placeholder="0"
+                error={errors.amount?.message}
+              />
+            )}
           />
         </div>
 

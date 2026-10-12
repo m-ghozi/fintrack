@@ -6,6 +6,7 @@ import { PageHeader } from '@/src/components/shared/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
+import { CurrencyInput } from '@/src/components/shared/CurrencyInput';
 import { Badge } from '@/src/components/ui/badge';
 import { Progress } from '@/src/components/ui/progress';
 import { MoneyDisplay } from '@/src/components/shared/MoneyDisplay';
@@ -61,7 +62,7 @@ export const DebtsView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!personName || totalAmount <= 0) return;
+    if (!personName || !totalAmount || totalAmount <= 0) return;
 
     const dto: CreateDebtDTO = {
       type: activeTab,
@@ -78,7 +79,7 @@ export const DebtsView: React.FC = () => {
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDebt || paymentAmount <= 0) return;
+    if (!selectedDebt || !paymentAmount || paymentAmount <= 0) return;
 
     await paymentMutation.mutateAsync({
       id: selectedDebt.id,
@@ -305,11 +306,11 @@ export const DebtsView: React.FC = () => {
               <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                 Total Nominal (Rp) *
               </label>
-              <Input
-                type="number"
-                required
+              <CurrencyInput
                 value={totalAmount}
-                onChange={(e) => setTotalAmount(Number(e.target.value))}
+                onChange={(v) => setTotalAmount(v ?? 0)}
+                required
+                error={!totalAmount || totalAmount <= 0 ? 'Nominal wajib diisi' : undefined}
               />
             </div>
             <div>
@@ -363,12 +364,11 @@ export const DebtsView: React.FC = () => {
             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
               Nominal Bayar / Cicil (Rp) *
             </label>
-            <Input
-              type="number"
-              required
-              max={selectedDebt?.remainingAmount}
+            <CurrencyInput
               value={paymentAmount}
-              onChange={(e) => setPaymentAmount(Number(e.target.value))}
+              onChange={(v) => setPaymentAmount(v ?? 0)}
+              required
+              error={!paymentAmount || paymentAmount <= 0 ? 'Nominal wajib diisi' : undefined}
             />
           </div>
 
