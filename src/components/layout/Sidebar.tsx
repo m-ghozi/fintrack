@@ -74,9 +74,11 @@ export const Sidebar: React.FC = () => {
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2.5 cursor-pointer group"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs group-hover:bg-emerald-700 transition">
-            <span className="font-bold text-base tracking-wider">F</span>
-          </div>
+          <img
+            src="/icon.svg"
+            alt="Fintrack"
+            className="h-9 w-9 rounded-xl shadow-xs group-hover:opacity-90 transition"
+          />
           <div>
             <span className="font-bold text-base tracking-tight text-zinc-950 dark:text-zinc-50 block leading-tight">
               Fintrack

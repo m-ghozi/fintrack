@@ -63,9 +63,11 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={() => navigate('/dashboard')}
           className="lg:hidden flex items-center gap-2 cursor-pointer"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-sm">
-            F
-          </div>
+          <img
+            src="/icon.svg"
+            alt="Fintrack"
+            className="h-8 w-8 rounded-lg"
+          />
         </div>
         <div className="flex flex-col">
           <h2 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">
