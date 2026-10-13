@@ -68,7 +68,7 @@ export const LoginView: React.FC = () => {
           <img
             src="/icon.svg"
             alt="Fintrack"
-            className="h-12 w-12 rounded-2xl shadow-md"
+            className="h-12 w-12 rounded-2xl shadow-md mx-auto"
           />
           <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
             Fintrack
