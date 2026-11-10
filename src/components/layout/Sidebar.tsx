@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, AppRoute } from '@/src/lib/router';
 import { cn } from '@/src/lib/utils';
 import {
@@ -15,6 +15,7 @@ import {
   Bell,
   Settings,
   ShieldCheck,
+  ChevronDown,
 } from 'lucide-react';
 import { useNotifications } from '@/src/hooks/useNotifications';
 import { PWAInstallButton } from '@/src/components/shared/PWAInstallButton';
@@ -26,45 +27,107 @@ interface NavItem {
   badge?: number;
 }
 
+interface NavSection {
+  id: string;
+  title: string;
+  items: NavItem[];
+}
+
+const COLLAPSED_STORAGE_KEY = 'fintrack_sidebar_collapsed';
+
+const DEFAULT_COLLAPSED: Record<string, boolean> = {
+  management: true,
+  analytics: true,
+};
+
+function readCollapsedSections(): Record<string, boolean> {
+  if (typeof window === 'undefined') return DEFAULT_COLLAPSED;
+  try {
+    const stored = window.localStorage.getItem(COLLAPSED_STORAGE_KEY);
+    if (!stored) return DEFAULT_COLLAPSED;
+    const parsed = JSON.parse(stored);
+    return parsed && typeof parsed === 'object' ? { ...DEFAULT_COLLAPSED, ...parsed } : DEFAULT_COLLAPSED;
+  } catch {
+    return DEFAULT_COLLAPSED;
+  }
+}
+
+function persistCollapsedSections(state: Record<string, boolean>) {
+  try {
+    window.localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage errors (private mode / quota)
+  }
+}
+
 export const Sidebar: React.FC = () => {
   const { pathname, navigate } = useRouter();
   const { data: notifications } = useNotifications();
   const unreadCount = notifications?.filter((n) => !n.isRead).length || 0;
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(readCollapsedSections);
 
-  const sections: { title: string; items: NavItem[] }[] = [
-    {
-      title: 'Utama',
-      items: [
-        { title: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
-        { title: 'Transaksi', href: '/transactions', icon: <ArrowLeftRight className="h-4 w-4" /> },
-      ],
-    },
-    {
-      title: 'Manajemen Keuangan',
-      items: [
-        { title: 'Rekening & Dompet', href: '/accounts', icon: <Wallet className="h-4 w-4" /> },
-        { title: 'Kategori', href: '/categories', icon: <Tag className="h-4 w-4" /> },
-        { title: 'Anggaran (Budget)', href: '/budgets', icon: <PieChart className="h-4 w-4" /> },
-        { title: 'Target Tabungan', href: '/savings', icon: <Target className="h-4 w-4" /> },
-        { title: 'Hutang & Piutang', href: '/debts', icon: <Scale className="h-4 w-4" /> },
-        { title: 'Transaksi Berulang', href: '/recurring', icon: <Repeat className="h-4 w-4" /> },
-      ],
-    },
-    {
-      title: 'Analitik & Perencanaan',
-      items: [
-        { title: 'Laporan Keuangan', href: '/reports', icon: <BarChart3 className="h-4 w-4" /> },
-        { title: 'Financial Planning', href: '/financial-planning', icon: <CalendarCheck2 className="h-4 w-4" /> },
-      ],
-    },
-    {
-      title: 'Preferensi',
-      items: [
-        { title: 'Notifikasi', href: '/notifications', icon: <Bell className="h-4 w-4" />, badge: unreadCount },
-        { title: 'Pengaturan', href: '/settings', icon: <Settings className="h-4 w-4" /> },
-      ],
-    },
-  ];
+  const toggleSection = (id: string) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      persistCollapsedSections(next);
+      return next;
+    });
+  };
+
+  const sections: NavSection[] = useMemo(
+    () => [
+      {
+        id: 'main',
+        title: 'Utama',
+        items: [
+          { title: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+          { title: 'Transaksi', href: '/transactions', icon: <ArrowLeftRight className="h-4 w-4" /> },
+        ],
+      },
+      {
+        id: 'management',
+        title: 'Manajemen Keuangan',
+        items: [
+          { title: 'Rekening & Dompet', href: '/accounts', icon: <Wallet className="h-4 w-4" /> },
+          { title: 'Kategori', href: '/categories', icon: <Tag className="h-4 w-4" /> },
+          { title: 'Anggaran (Budget)', href: '/budgets', icon: <PieChart className="h-4 w-4" /> },
+          { title: 'Target Tabungan', href: '/savings', icon: <Target className="h-4 w-4" /> },
+          { title: 'Hutang & Piutang', href: '/debts', icon: <Scale className="h-4 w-4" /> },
+          { title: 'Transaksi Berulang', href: '/recurring', icon: <Repeat className="h-4 w-4" /> },
+        ],
+      },
+      {
+        id: 'analytics',
+        title: 'Analitik & Perencanaan',
+        items: [
+          { title: 'Laporan Keuangan', href: '/reports', icon: <BarChart3 className="h-4 w-4" /> },
+          { title: 'Financial Planning', href: '/financial-planning', icon: <CalendarCheck2 className="h-4 w-4" /> },
+        ],
+      },
+      {
+        id: 'preferences',
+        title: 'Preferensi',
+        items: [
+          { title: 'Notifikasi', href: '/notifications', icon: <Bell className="h-4 w-4" />, badge: unreadCount },
+          { title: 'Pengaturan', href: '/settings', icon: <Settings className="h-4 w-4" /> },
+        ],
+      },
+    ],
+    [unreadCount]
+  );
+
+  // Auto-expand the section that contains the current route
+  useEffect(() => {
+    const activeSection = sections.find((sec) => sec.items.some((item) => item.href === pathname));
+    if (!activeSection) return;
+    setCollapsed((prev) => {
+      if (!prev[activeSection.id]) return prev;
+      const next = { ...prev, [activeSection.id]: false };
+      persistCollapsedSections(next);
+      return next;
+    });
+  }, [pathname, sections]);
+
 
   return (
     <aside className="hidden lg:flex flex-col w-64 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 h-screen sticky top-0 z-30 select-none">
@@ -91,43 +154,72 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Nav List */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-        {sections.map((sec) => (
-          <div key={sec.title}>
-            <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1.5">
-              {sec.title}
-            </p>
-            <nav className="space-y-0.5">
-              {sec.items.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <button
-                    key={item.href}
-                    onClick={() => navigate(item.href)}
-                    className={cn(
-                      'flex items-center justify-between w-full px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer text-left',
-                      isActive
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100'
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className={cn(isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400')}>
-                        {item.icon}
-                      </span>
-                      <span>{item.title}</span>
-                    </div>
-                    {item.badge !== undefined && item.badge > 0 && (
-                      <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        ))}
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+        {sections.map((sec) => {
+          const isExpanded = !collapsed[sec.id];
+          const panelId = `sidebar-section-${sec.id}`;
+
+          return (
+            <div key={sec.id}>
+              <button
+                type="button"
+                onClick={() => toggleSection(sec.id)}
+                aria-expanded={isExpanded}
+                aria-controls={panelId}
+                className="group flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-400 transition-colors hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer"
+              >
+                <span>{sec.title}</span>
+                <ChevronDown
+                  className={cn(
+                    'h-3.5 w-3.5 shrink-0 transition-transform duration-200',
+                    isExpanded ? 'rotate-0' : '-rotate-90'
+                  )}
+                />
+              </button>
+              <div
+                id={panelId}
+                aria-hidden={!isExpanded}
+                className={cn(
+                  'grid transition-[grid-template-rows,opacity] duration-200 ease-out',
+                  isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                )}
+              >
+                <div className="overflow-hidden">
+                  <nav className="space-y-0.5 pt-1">
+                    {sec.items.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                        <button
+                          key={item.href}
+                          onClick={() => navigate(item.href)}
+                          tabIndex={isExpanded ? 0 : -1}
+                          className={cn(
+                            'flex items-center justify-between w-full px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer text-left',
+                            isActive
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold'
+                              : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100'
+                          )}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className={cn(isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400')}>
+                              {item.icon}
+                            </span>
+                            <span>{item.title}</span>
+                          </div>
+                          {item.badge !== undefined && item.badge > 0 && (
+                            <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </nav>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Footer Info / PWA install */}
