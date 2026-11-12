@@ -195,9 +195,14 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
               >
                 <option value="">Semua Kategori</option>
                 {categories?.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
+                  <React.Fragment key={cat.id}>
+                    <option value={cat.id}>{cat.name}</option>
+                    {cat.subcategories?.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        ↳ {sub.name}
+                      </option>
+                    ))}
+                  </React.Fragment>
                 ))}
               </select>
             </div>

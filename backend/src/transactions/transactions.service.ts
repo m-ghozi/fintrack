@@ -61,11 +61,23 @@ export class TransactionsService {
   async findAll(userId: string, q: FindTransactionsQueryDto) {
     const page = q.page ?? 1;
     const limit = Math.min(q.limit ?? 20, 100);
+
+    // Filtering by a parent category must include its sub-categories, otherwise
+    // "Transportasi" would miss transactions booked under "Bensin"/"Oli".
+    let categoryIds: string[] | undefined;
+    if (q.categoryId) {
+      const children = await this.prisma.category.findMany({
+        where: { userId, parentId: q.categoryId },
+        select: { id: true },
+      });
+      categoryIds = [q.categoryId, ...children.map((c) => c.id)];
+    }
+
     const where: Prisma.TransactionWhereInput = {
       userId,
       ...(q.type && q.type !== 'all' ? { type: q.type } : {}),
       ...(q.accountId ? { accountId: q.accountId } : {}),
-      ...(q.categoryId ? { categoryId: q.categoryId } : {}),
+      ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
       ...(q.startDate || q.endDate
         ? { date: { ...(q.startDate ? { gte: new Date(q.startDate) } : {}), ...(q.endDate ? { lte: new Date(q.endDate) } : {}) } }
         : {}),
