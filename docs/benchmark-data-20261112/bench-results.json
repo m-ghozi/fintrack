@@ -1,0 +1,98 @@
+{
+  "before": {
+    "dashboard": {
+      "cold": 355,
+      "min": 227.8,
+      "p50": 346.7,
+      "p95": 482.1,
+      "max": 482.1,
+      "mean": 367.2,
+      "samples": 14
+    },
+    "reports": {
+      "cold": 288.9,
+      "min": 263.4,
+      "p50": 343.7,
+      "p95": 564.5,
+      "max": 564.5,
+      "mean": 374,
+      "samples": 14
+    },
+    "transactions": {
+      "cold": 467.4,
+      "min": 390.4,
+      "p50": 447.4,
+      "p95": 650,
+      "max": 650,
+      "mean": 468.3,
+      "samples": 14
+    },
+    "notifications": {
+      "cold": 681.3,
+      "min": 393.3,
+      "p50": 428.4,
+      "p95": 732.3,
+      "max": 732.3,
+      "mean": 504.8,
+      "samples": 14
+    },
+    "auth/me": {
+      "cold": 61.9,
+      "min": 62.2,
+      "p50": 77,
+      "p95": 174,
+      "max": 174,
+      "mean": 95.7,
+      "samples": 14
+    }
+  },
+  "after": {
+    "dashboard": {
+      "cold": 5.8,
+      "min": 4.5,
+      "p50": 7.1,
+      "p95": 11.6,
+      "max": 11.6,
+      "mean": 7,
+      "samples": 14
+    },
+    "reports": {
+      "cold": 6.2,
+      "min": 4.7,
+      "p50": 5.6,
+      "p95": 8.3,
+      "max": 8.3,
+      "mean": 5.8,
+      "samples": 14
+    },
+    "transactions": {
+      "cold": 440.2,
+      "min": 407.1,
+      "p50": 438.6,
+      "p95": 650.5,
+      "max": 650.5,
+      "mean": 466.9,
+      "samples": 14
+    },
+    "notifications": {
+      "cold": 4.3,
+      "min": 3.3,
+      "p50": 3.8,
+      "p95": 5.2,
+      "max": 5.2,
+      "mean": 3.9,
+      "samples": 14
+    },
+    "auth/me": {
+      "cold": 129.3,
+      "min": 56.3,
+      "p50": 70,
+      "p95": 117.8,
+      "max": 117.8,
+      "mean": 74.2,
+      "samples": 14
+    }
+  },
+  "generatedAt": "2026-11-12T15:20:21.098Z",
+  "note": "after.dashboard/reports/notifications: cold = cache miss (TTL 30s/10s), p50..max = cache warm"
+}
