@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../common/cache/cache.service';
 
 /** Shape rows to the frontend contract (createdAt → date). */
 function toContract(n: {
@@ -24,9 +25,25 @@ function toContract(n: {
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cache: CacheService,
+  ) {}
 
+  /**
+   * Cached for 10s (regenerating insights is a write-heavy path). Any
+   * mark-as-read bumps the user's epoch, so the list is immediately fresh
+   * after a read-state change.
+   */
   async findAll(userId: string) {
+    return this.cache.getOrSet(
+      this.cache.userKey('notifications', userId),
+      10_000,
+      () => this.list(userId),
+    );
+  }
+
+  private async list(userId: string) {
     // Regenerate insight-based notifications (budget thresholds, due dates,
     // upcoming recurring) before listing, so the list is always current.
     await this.generateInsights(userId);
@@ -40,6 +57,7 @@ export class NotificationsService {
   }
 
   async markAsRead(userId: string, id: string) {
+    this.cache.bumpUser(userId);
     const notif = await this.prisma.notification.findFirst({ where: { id, userId } });
     if (!notif) {
       await this.prisma.notification.deleteMany({ where: { id, userId } });
@@ -53,6 +71,7 @@ export class NotificationsService {
   }
 
   async markAllAsRead(userId: string) {
+    this.cache.bumpUser(userId);
     await this.prisma.notification.updateMany({
       where: { userId, isRead: false },
       data: { isRead: true },

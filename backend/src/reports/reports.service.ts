@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountsService } from '../accounts/accounts.service';
+import { CacheService } from '../common/cache/cache.service';
 
 type Period = 'this_month' | '3_months' | '6_months' | 'this_year' | 'custom';
 
@@ -33,9 +34,19 @@ export class ReportsService {
   constructor(
     private prisma: PrismaService,
     private accounts: AccountsService,
+    private cache: CacheService,
   ) {}
 
+  /** Cached for 30s; invalidated by the user's mutation epoch on any write. */
   async summary(userId: string, period: Period, startDate?: string, endDate?: string) {
+    return this.cache.getOrSet(
+      this.cache.userKey('reports', userId, period, startDate ?? '', endDate ?? ''),
+      30_000,
+      () => this.buildSummary(userId, period, startDate, endDate),
+    );
+  }
+
+  private async buildSummary(userId: string, period: Period, startDate?: string, endDate?: string) {
     const { start, end } = resolveRange(period, startDate, endDate);
 
     // Cash flow history is independent of the groupBy results — run it in the

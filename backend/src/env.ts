@@ -17,3 +17,11 @@ import { resolve } from 'path';
 
 // __dirname points to backend/src (tsc) or backend/dist (nest build).
 config({ path: resolve(__dirname, '../.env') });
+
+// Fail fast in production instead of silently signing JWTs with the
+// 'dev-secret-change-me' fallback (which would invalidate every token issued
+// by JwtStrategy using the real secret, or worse, be trivially forgeable).
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET must be set when NODE_ENV=production');
+  process.exit(1);
+}

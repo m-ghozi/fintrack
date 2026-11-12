@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { RecurringService, nextOccurrence } from '../recurring/recurring.service';
+import { CacheService } from '../common/cache/cache.service';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -44,7 +45,21 @@ export class DashboardService {
     private prisma: PrismaService,
     private accounts: AccountsService,
     private recurring: RecurringService,
+    private cache: CacheService,
   ) {}
+
+  /**
+   * Cached for 30s per (user, period). The cache key embeds the user's
+   * mutation epoch, so any successful write bumps it and the next read is
+   * fresh — stale data never outlives a write.
+   */
+  async getDashboard(userId: string, period: ChartPeriod = 'this_month') {
+    return this.cache.getOrSet(
+      this.cache.userKey('dashboard', userId, period),
+      30_000,
+      () => this.buildDashboard(userId, period),
+    );
+  }
 
   /**
    * Aggregates the dashboard payload. Queries are deliberately few and the
@@ -52,7 +67,7 @@ export class DashboardService {
    * already fetched — on a remote database every extra query costs a full
    * round trip, and Prisma issues a separate query per included relation.
    */
-  async getDashboard(userId: string, period: ChartPeriod = 'this_month') {
+  private async buildDashboard(userId: string, period: ChartPeriod) {
     // Execute due recurring schedules first so aggregates are fresh.
     await this.recurring.runDue(userId);
 
