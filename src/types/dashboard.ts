@@ -19,6 +19,7 @@ export interface DashboardData {
   totalExpense: number;
   cashFlow: number;
   chartPeriod: string;
+  chartGranularity?: 'daily' | 'monthly';
   cashFlowOverview: MonthlyCashFlow[];
   expenseByCategory: ExpenseByCategoryReport[];
   budgets: Budget[];

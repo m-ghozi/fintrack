@@ -39,10 +39,10 @@ import {
 export const DashboardView: React.FC<{
   onOpenCreateTransaction: () => void;
 }> = ({ onOpenCreateTransaction }) => {
-  const { data, isLoading, error, refetch } = useDashboard();
+  const [chartFilter, setChartFilter] = useState<'7_days' | 'this_month' | '3_months' | '6_months' | '1_year'>('this_month');
+  const { data, isLoading, error, refetch } = useDashboard(chartFilter);
   const { data: user } = useCurrentUser();
   const { navigate } = useRouter();
-  const [chartFilter, setChartFilter] = useState<'7_days' | 'this_month' | '3_months' | '6_months' | '1_year'>('this_month');
 
   if (isLoading) return <LoadingState rows={6} />;
   if (error || !data) return <ErrorState message="Gagal memuat data dashboard" onRetry={() => refetch()} />;
@@ -130,7 +130,14 @@ export const DashboardView: React.FC<{
           <CardContent className="h-72 w-full pt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.cashFlowOverview} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={6}
+                  interval={chartFilter === 'this_month' ? 4 : 0}
+                />
                 <YAxis
                   tick={{ fontSize: 10 }}
                   tickLine={false}

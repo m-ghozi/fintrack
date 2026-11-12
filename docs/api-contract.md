@@ -422,9 +422,11 @@ Seluruh interaksi frontend mengacu pada spesifikasi ini.
 ## 10. Dashboard & Laporan (`/dashboard`, `/reports`)
 
 ### GET `/dashboard`
+- **Query Params**: `period=7_days|this_month|3_months|6_months|1_year`
+  (default `this_month`) — mengatur rentang grafik `cashFlowOverview`.
 - Mengembalikan data ringkas:
   - `totalBalance`, `totalIncome`, `totalExpense`, `cashFlow`
-  - `cashFlowOverview` (7 hari / bulan ini)
+  - `cashFlowOverview` (harian untuk `7_days`/`this_month`, bulanan untuk periode lainnya)
   - `expenseByCategory`
   - `budgets`
   - `savingGoals`

@@ -5,6 +5,39 @@ import { RecurringService, nextOccurrence } from '../recurring/recurring.service
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
+export type ChartPeriod = '7_days' | 'this_month' | '3_months' | '6_months' | '1_year';
+
+const CHART_PERIOD_LABELS: Record<ChartPeriod, string> = {
+  '7_days': '7 Hari',
+  this_month: 'Bulan Ini',
+  '3_months': '3 Bulan',
+  '6_months': '6 Bulan',
+  '1_year': '1 Tahun',
+};
+
+function resolveChartRange(period: ChartPeriod) {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+  const monthStart = new Date(Date.UTC(y, m, 1));
+  const nextMonth = new Date(Date.UTC(y, m + 1, 1));
+
+  switch (period) {
+    case '7_days':
+      return { start: new Date(Date.UTC(y, m, d - 6)), end: new Date(Date.UTC(y, m, d + 1)), daily: true };
+    case 'this_month':
+      return { start: monthStart, end: nextMonth, daily: true };
+    case '3_months':
+      return { start: new Date(Date.UTC(y, m - 2, 1)), end: nextMonth, daily: false };
+    case '1_year':
+      return { start: new Date(Date.UTC(y, m - 11, 1)), end: nextMonth, daily: false };
+    case '6_months':
+    default:
+      return { start: new Date(Date.UTC(y, m - 5, 1)), end: nextMonth, daily: false };
+  }
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -19,7 +52,7 @@ export class DashboardService {
    * already fetched — on a remote database every extra query costs a full
    * round trip, and Prisma issues a separate query per included relation.
    */
-  async getDashboard(userId: string) {
+  async getDashboard(userId: string, period: ChartPeriod = 'this_month') {
     // Execute due recurring schedules first so aggregates are fresh.
     await this.recurring.runDue(userId);
 
@@ -27,7 +60,10 @@ export class DashboardService {
     const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-    const sixMonthsAgo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
+    const chart = resolveChartRange(period);
+    // The flow query must cover both the selected chart window and this month
+    // (which still drives the summary cards and category breakdown).
+    const flowStart = chart.start < monthStart ? chart.start : monthStart;
 
     const [
       accounts,
@@ -43,11 +79,11 @@ export class DashboardService {
       // includeArchived: recent transactions may reference an archived account,
       // and we need its name for the label (totalBalance filters it out below).
       this.accounts.findAll(userId, true),
-      // One query for both the 6-month chart and this month's income/expense.
-      this.prisma.$queryRaw<{ month: string; type: string; total: bigint }[]>`
-        SELECT to_char(date, 'YYYY-MM') AS month, type::text AS type, SUM(amount) AS total
+      // One query for both the chart window and this month's income/expense.
+      this.prisma.$queryRaw<{ day: string; type: string; total: bigint }[]>`
+        SELECT to_char(date, 'YYYY-MM-DD') AS day, type::text AS type, SUM(amount) AS total
         FROM "Transaction"
-        WHERE "userId" = ${userId} AND status = 'completed' AND date >= ${sixMonthsAgo}
+        WHERE "userId" = ${userId} AND status = 'completed' AND date >= ${flowStart}
         GROUP BY 1, 2 ORDER BY 1`,
       this.prisma.transaction.groupBy({
         by: ['categoryId'],
@@ -84,24 +120,57 @@ export class DashboardService {
       }),
     ]);
 
-    const byMonthType = (month: string, type: string) =>
-      Number(flowRows.find((r) => r.month === month && r.type === type)?.total ?? 0);
+    const byDayType = (day: string, type: string) =>
+      Number(flowRows.find((r) => r.day === day && r.type === type)?.total ?? 0);
+
+    const sumInRange = (from: Date, to: Date, type: string) => {
+      const fromKey = from.toISOString().slice(0, 10);
+      const toKey = to.toISOString().slice(0, 10);
+      return flowRows
+        .filter((r) => r.type === type && r.day >= fromKey && r.day < toKey)
+        .reduce((sum, r) => sum + Number(r.total), 0);
+    };
 
     // totalBalance = sum of currentBalance across non-credit-card, non-archived accounts
     const totalBalance = accounts
       .filter((a) => a.type !== 'credit_card' && !a.isArchived)
       .reduce((sum, a) => sum + a.currentBalance, 0);
 
-    const totalIncome = byMonthType(monthKey, 'income');
-    const totalExpense = byMonthType(monthKey, 'expense');
+    const totalIncome = sumInRange(monthStart, nextMonth, 'income');
+    const totalExpense = sumInRange(monthStart, nextMonth, 'expense');
 
-    const cashFlowOverview = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5 + i, 1));
-      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-      const income = byMonthType(key, 'income');
-      const expense = byMonthType(key, 'expense');
-      return { month: MONTH_NAMES[d.getUTCMonth()], income, expense, net: income - expense };
-    });
+    const cashFlowOverview: { month: string; income: number; expense: number; net: number }[] = [];
+    if (chart.daily) {
+      const cursor = new Date(chart.start);
+      while (cursor < chart.end) {
+        const key = cursor.toISOString().slice(0, 10);
+        const income = byDayType(key, 'income');
+        const expense = byDayType(key, 'expense');
+        cashFlowOverview.push({
+          month: `${cursor.getUTCDate()} ${MONTH_NAMES[cursor.getUTCMonth()]}`,
+          income,
+          expense,
+          net: income - expense,
+        });
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+    } else {
+      const cursor = new Date(Date.UTC(chart.start.getUTCFullYear(), chart.start.getUTCMonth(), 1));
+      while (cursor < chart.end) {
+        const rangeStart = cursor > chart.start ? cursor : chart.start;
+        const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+        const rangeEnd = monthEnd < chart.end ? monthEnd : chart.end;
+        const income = sumInRange(rangeStart, rangeEnd, 'income');
+        const expense = sumInRange(rangeStart, rangeEnd, 'expense');
+        cashFlowOverview.push({
+          month: `${MONTH_NAMES[cursor.getUTCMonth()]} ${String(cursor.getUTCFullYear()).slice(2)}`,
+          income,
+          expense,
+          net: income - expense,
+        });
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      }
+    }
 
     const categoryById = new Map(categories.map((c) => [c.id, c]));
     const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
@@ -176,7 +245,8 @@ export class DashboardService {
       totalIncome,
       totalExpense,
       cashFlow: totalIncome - totalExpense,
-      chartPeriod: 'Bulan Ini',
+      chartPeriod: CHART_PERIOD_LABELS[period],
+      chartGranularity: chart.daily ? 'daily' : 'monthly',
       cashFlowOverview,
       expenseByCategory,
       budgets: budgetsDto,
