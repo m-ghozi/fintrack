@@ -211,8 +211,27 @@ export class RecurringService {
    * real transaction. Idempotent: it always walks forward from lastRunDate, so
    * repeated calls (GET /recurring, GET /dashboard) never re-create the same
    * occurrence. Called lazily instead of running a cron.
+   *
+   * Performance: occurrences are collected per schedule first, then inserted
+   * with a single createMany + one lastRunDate update per schedule (previously
+   * 2 sequential writes per occurrence), and independent schedules run in
+   * parallel. A per-user in-process lock guards against concurrent requests
+   * double-creating the same occurrences.
    */
+  private runningFor = new Map<string, Promise<void>>();
+
   async runDue(userId: string) {
+    const inFlight = this.runningFor.get(userId);
+    if (inFlight) return inFlight;
+
+    const task = this.doRunDue(userId).finally(() => {
+      if (this.runningFor.get(userId) === task) this.runningFor.delete(userId);
+    });
+    this.runningFor.set(userId, task);
+    return task;
+  }
+
+  private async doRunDue(userId: string) {
     const schedules = await this.prisma.recurring.findMany({
       where: { userId, isActive: true },
     });
@@ -220,36 +239,52 @@ export class RecurringService {
     const todayStart = startOfDayUtc(new Date());
     const todayEnd = endOfTodayUtc();
 
+    // Collect due occurrences per schedule without touching the DB.
+    const work: {
+      schedule: (typeof schedules)[number];
+      dates: Date[];
+    }[] = [];
+
     for (const s of schedules) {
       if (s.endDate && startOfDayUtc(s.endDate) < todayStart) continue; // schedule over
 
       let due = s.lastRunDate ? stepOnce(s, startOfDayUtc(s.lastRunDate)) : firstOccurrence(s);
       let guard = 0;
+      const dates: Date[] = [];
 
       while (due <= todayEnd && guard++ < 120) {
         if (s.endDate && due > startOfDayUtc(s.endDate)) break;
-
-        await this.prisma.transaction.create({
-          data: {
-            userId,
-            type: s.type,
-            amount: s.amount,
-            date: due,
-            accountId: s.accountId,
-            toAccountId: s.type === 'transfer' ? s.accountId : null,
-            categoryId: s.categoryId,
-            description: s.description ?? s.name,
-            notes: `Otomatis dari jadwal: ${s.name}`,
-          },
-        });
-        await this.prisma.recurring.update({
-          where: { id: s.id },
-          data: { lastRunDate: due },
-        });
-        s.lastRunDate = due;
+        dates.push(due);
         due = stepOnce(s, due);
       }
+      if (dates.length) work.push({ schedule: s, dates });
     }
+
+    // Each schedule is independent: create all its transactions in one
+    // createMany and bump lastRunDate once, inside a single transaction.
+    await Promise.all(
+      work.map(({ schedule: s, dates }) =>
+        this.prisma.$transaction([
+          this.prisma.transaction.createMany({
+            data: dates.map((date) => ({
+              userId,
+              type: s.type,
+              amount: s.amount,
+              date,
+              accountId: s.accountId,
+              toAccountId: s.type === 'transfer' ? s.accountId : null,
+              categoryId: s.categoryId,
+              description: s.description ?? s.name,
+              notes: `Otomatis dari jadwal: ${s.name}`,
+            })),
+          }),
+          this.prisma.recurring.update({
+            where: { id: s.id },
+            data: { lastRunDate: dates[dates.length - 1] },
+          }),
+        ]),
+      ),
+    );
   }
 
   private async validateRefs(

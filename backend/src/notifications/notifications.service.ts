@@ -161,32 +161,47 @@ export class NotificationsService {
     }
 
     // Replace derived rows in one pass; keep user-read rows of the same key read-state.
+    // Only rows whose content actually changed are updated (usually none), new
+    // insights are inserted with a single createMany, and stale rows are removed
+    // in one deleteMany — no per-insight round trips.
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.notification.findMany({
         where: { userId, type: { not: 'system' } },
-        select: { id: true, type: true, title: true, isRead: true },
+        select: { id: true, type: true, title: true, message: true, link: true, isRead: true },
       });
       const existingByTypeTitle = new Map(existing.map((n) => [`${n.type}|${n.title}`, n]));
 
+      const toCreate: { userId: string; type: string; title: string; message: string; link: string | null }[] = [];
+      const toUpdate: { id: string; message: string; link: string | null }[] = [];
+
       for (const i of insights) {
         const match = existingByTypeTitle.get(`${i.type}|${i.title}`);
+        const link = i.link ?? null;
         if (match) {
-          await tx.notification.update({
-            where: { id: match.id },
-            data: { message: i.message, link: i.link },
-          });
           existingByTypeTitle.delete(`${i.type}|${i.title}`);
+          if (match.message !== i.message || (match.link ?? null) !== link) {
+            toUpdate.push({ id: match.id, message: i.message, link });
+          }
         } else {
-          await tx.notification.create({
-            data: {
-              userId,
-              type: i.type,
-              title: i.title,
-              message: i.message,
-              link: i.link,
-            },
+          toCreate.push({
+            userId,
+            type: i.type,
+            title: i.title,
+            message: i.message,
+            link,
           });
         }
+      }
+
+      if (toCreate.length) {
+        await tx.notification.createMany({ data: toCreate });
+      }
+      // Content changed: refresh the row but preserve its read state.
+      for (const u of toUpdate) {
+        await tx.notification.update({
+          where: { id: u.id },
+          data: { message: u.message, link: u.link },
+        });
       }
       // Rows that no longer correspond to any insight are stale — remove them.
       await tx.notification.deleteMany({

@@ -119,7 +119,7 @@ export class TransactionsService {
   }
 
   async create(userId: string, dto: CreateTransactionDto) {
-    this.validateReferences(userId, dto.accountId, dto.toAccountId, dto.categoryId, dto.type);
+    await this.validateReferences(userId, dto.accountId, dto.toAccountId, dto.categoryId, dto.type);
 
     const trx = await this.prisma.transaction.create({
       data: {
@@ -146,7 +146,7 @@ export class TransactionsService {
     if (!existing) throw new NotFoundException('Transaksi tidak ditemukan');
 
     const type = dto.type ?? existing.type;
-    this.validateReferences(
+    await this.validateReferences(
       userId,
       dto.accountId ?? existing.accountId,
       dto.toAccountId ?? existing.toAccountId ?? undefined,
@@ -181,7 +181,7 @@ export class TransactionsService {
     return { message: 'Transaksi dihapus' };
   }
 
-  private validateReferences(
+  private async validateReferences(
     userId: string,
     accountId: string,
     toAccountId: string | undefined,
@@ -200,10 +200,12 @@ export class TransactionsService {
     if (toAccountId && toAccountId === accountId) {
       throw new BadRequestException('Rekening tujuan tidak boleh sama');
     }
-    // Ownership checks (throws if not owned / not found).
-    this.ownAccountOrThrow(userId, accountId);
-    if (toAccountId) this.ownAccountOrThrow(userId, toAccountId);
-    if (categoryId) this.ownCategoryOrThrow(userId, categoryId);
+    // Ownership checks (throws if not owned / not found) — run in parallel
+    // instead of sequentially, they are independent lookups.
+    const checks = [this.ownAccountOrThrow(userId, accountId)];
+    if (toAccountId) checks.push(this.ownAccountOrThrow(userId, toAccountId));
+    if (categoryId) checks.push(this.ownCategoryOrThrow(userId, categoryId));
+    await Promise.all(checks);
   }
 
   private async ownAccountOrThrow(userId: string, accountId: string) {

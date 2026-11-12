@@ -38,39 +38,55 @@ export class ReportsService {
   async summary(userId: string, period: Period, startDate?: string, endDate?: string) {
     const { start, end } = resolveRange(period, startDate, endDate);
 
-    const [typeSums, catRows, accounts, activeDebts] = await Promise.all([
-      this.prisma.transaction.groupBy({
-        by: ['type'],
-        where: { userId, status: 'completed', date: { gte: start, lt: end } },
-        _sum: { amount: true },
-      }),
-      this.prisma.transaction.groupBy({
-        by: ['type', 'categoryId'],
-        where: {
-          userId,
-          status: 'completed',
-          categoryId: { not: null },
-          date: { gte: start, lt: end },
-        },
-        _sum: { amount: true },
-      }),
-      this.accounts.findAll(userId, true), // includeArchived: net worth counts everything
-      this.prisma.debt.findMany({ where: { userId, status: { not: 'paid' } } }),
-    ]);
+    // Cash flow history is independent of the groupBy results — run it in the
+    // same batch instead of a sequential tail query after Promise.all.
+    const rangeDays = (end.getTime() - start.getTime()) / 86400000;
+    const cashFlowHistoryPromise =
+      rangeDays <= 62
+        ? this.dailyCashFlow(userId, start, end)
+        : this.monthlyCashFlow(userId, start, end);
+
+    const [typeSums, catRows, accounts, activeDebts, allCategories, cashFlowHistory] =
+      await Promise.all([
+        this.prisma.transaction.groupBy({
+          by: ['type'],
+          where: { userId, status: 'completed', date: { gte: start, lt: end } },
+          _sum: { amount: true },
+        }),
+        this.prisma.transaction.groupBy({
+          by: ['type', 'categoryId'],
+          where: {
+            userId,
+            status: 'completed',
+            categoryId: { not: null },
+            date: { gte: start, lt: end },
+          },
+          _sum: { amount: true },
+        }),
+        this.accounts.findAll(userId, true), // includeArchived: net worth counts everything
+        // Only the fields used below — skip loading full debt rows.
+        this.prisma.debt.findMany({
+          where: { userId, status: { not: 'paid' } },
+          select: { type: true, personName: true, remainingAmount: true },
+        }),
+        // All of the user's categories (small set) fetched in parallel; we keep
+        // the ones referenced by the breakdown below.
+        this.prisma.category.findMany({
+          where: { userId },
+          select: { id: true, name: true, color: true },
+        }),
+        cashFlowHistoryPromise,
+      ]);
 
     const sumOf = (type: string) =>
       typeSums.find((r) => r.type === type)?._sum.amount ?? 0;
     const totalIncome = sumOf('income');
     const totalExpense = sumOf('expense');
 
-    const catIds = [...new Set(catRows.map((r) => r.categoryId as string))];
-    const categories = catIds.length
-      ? await this.prisma.category.findMany({
-          where: { id: { in: catIds } },
-          select: { id: true, name: true, color: true },
-        })
-      : [];
-    const catById = new Map(categories.map((c) => [c.id, c]));
+    const catIds = new Set(catRows.map((r) => r.categoryId as string));
+    const catById = new Map(
+      allCategories.filter((c) => catIds.has(c.id)).map((c) => [c.id, c]),
+    );
 
     const buildBreakdown = (type: 'income' | 'expense') => {
       const rows = catRows.filter((r) => r.type === type);
@@ -90,12 +106,7 @@ export class ReportsService {
         .sort((a, b) => b.amount - a.amount);
     };
 
-    // Cash flow history: one row per month (or per day if range < 62 days)
-    const rangeDays = (end.getTime() - start.getTime()) / 86400000;
-    const cashFlowHistory =
-      rangeDays <= 62
-        ? await this.dailyCashFlow(userId, start, end)
-        : await this.monthlyCashFlow(userId, start, end);
+    // Cash flow history was computed in the parallel batch above.
 
     // Net worth: assets = non-credit-card balances; liabilities = credit-card
     // (negative) balances + outstanding debts I owe.

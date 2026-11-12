@@ -54,8 +54,13 @@ export default defineConfig(() => {
         '@': path.resolve('.'),
       },
     },
+    // No manualChunks needed: all views are lazy-loaded in AppLayout, so Rollup
+    // automatically splits each route into its own chunk and hoists shared
+    // libraries (e.g. recharts, used only by Dashboard/Reports) into their own
+    // chunk that is fetched on demand — keeping the initial bundle small.
     server: {
-      allowedHosts: true,
+      // `as const` keeps the literal `true` (vite's type is `true | string[]`).
+      allowedHosts: true as const,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

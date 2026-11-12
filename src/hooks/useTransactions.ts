@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { transactionsService } from '@/src/lib/api/transactions';
 import {
   CreateTransactionDTO,
@@ -16,6 +16,9 @@ export function useTransactions(filters: TransactionFilters = {}) {
   return useQuery({
     queryKey: [...TRANSACTIONS_KEY, filters],
     queryFn: () => transactionsService.getTransactions(filters),
+    // Keep the previous page/filter results visible while the next page loads,
+    // instead of flashing a full loading skeleton on every pagination change.
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -150,6 +150,7 @@ model Transaction {
   @@index([userId, type])
   @@index([accountId])
   @@index([categoryId])
+  @@index([toAccountId])
 }
 
 model Budget {
@@ -168,6 +169,7 @@ model Budget {
 
   @@unique([userId, categoryId, period])
   @@index([userId, period])
+  @@index([accountId])
 }
 
 model SavingGoal {
@@ -206,6 +208,7 @@ model SavingsContribution {
   createdAt    DateTime   @default(now())
 
   @@index([savingGoalId])
+  @@index([accountId])
 }
 
 model Debt {
@@ -226,6 +229,7 @@ model Debt {
   payments DebtPayment[]
 
   @@index([userId, status])
+  @@index([userId, dueDate])
 }
 
 model DebtPayment {
@@ -242,6 +246,7 @@ model DebtPayment {
   createdAt DateTime @default(now())
 
   @@index([debtId])
+  @@index([accountId])
 }
 
 model Recurring {
@@ -267,6 +272,8 @@ model Recurring {
   updatedAt   DateTime        @updatedAt
 
   @@index([userId, isActive])
+  @@index([accountId])
+  @@index([categoryId])
 }
 
 model Notification {
@@ -281,4 +288,5 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
+  @@index([userId, createdAt(sort: Desc)])
 }
