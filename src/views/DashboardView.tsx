@@ -39,7 +39,7 @@ import {
 export const DashboardView: React.FC<{
   onOpenCreateTransaction: () => void;
 }> = ({ onOpenCreateTransaction }) => {
-  const [chartFilter, setChartFilter] = useState<'7_days' | 'this_month' | '3_months' | '6_months' | '1_year'>('this_month');
+  const [chartFilter, setChartFilter] = useState<'7_days' | 'this_month' | '3_months' | '6_months' | '1_year'>('7_days');
   const { data, isLoading, error, refetch } = useDashboard(chartFilter);
   const { data: user } = useCurrentUser();
   const { navigate } = useRouter();

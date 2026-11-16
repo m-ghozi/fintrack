@@ -9,7 +9,7 @@ export type DashboardChartPeriod =
   | '1_year';
 
 export const dashboardService = {
-  async getDashboardData(period: DashboardChartPeriod = 'this_month'): Promise<DashboardData> {
+  async getDashboardData(period: DashboardChartPeriod = '7_days'): Promise<DashboardData> {
     const params = new URLSearchParams({ period });
     const res = await apiClient<{ data: DashboardData }>(`/dashboard?${params.toString()}`);
     return res.data;
